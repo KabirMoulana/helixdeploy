@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	helixv1 "github.com/yourusername/helixdeploy/api/v1alpha1"
-	"github.com/yourusername/helixdeploy/internal/tekton"
+	helixv1 "github.com/KabirMoulana/helixdeploy/api/v1alpha1"
+	"github.com/KabirMoulana/helixdeploy/internal/tekton"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

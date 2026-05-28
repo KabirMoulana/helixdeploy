@@ -2,8 +2,8 @@
 
 **Self-hosted Kubernetes-native CI/CD Platform with Progressive Delivery Engine**
 
-[![CI](https://github.com/yourusername/helixdeploy/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/helixdeploy/actions)
-[![Go Report Card](https://goreportcard.com/badge/github.com/yourusername/helixdeploy)](https://goreportcard.com/report/github.com/yourusername/helixdeploy)
+[![CI](https://github.com/KabirMoulana/helixdeploy/actions/workflows/ci.yml/badge.svg)](https://github.com/KabirMoulana/helixdeploy/actions)
+[![Go Report Card](https://goreportcard.com/badge/github.com/KabirMoulana/helixdeploy)](https://goreportcard.com/report/github.com/KabirMoulana/helixdeploy)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 HelixDeploy is a Kubernetes-native CI/CD platform built as a **custom controller with CRDs**. Define your entire pipeline as a Kubernetes resource, get GitOps-native deployments, manual approval gates, and progressive canary delivery — without GitHub Actions limitations.
@@ -42,7 +42,7 @@ HelixDeploy is a Kubernetes-native CI/CD platform built as a **custom controller
 ## Quick Start (Local Kind Cluster)
 
 ```bash
-git clone https://github.com/yourusername/helixdeploy
+git clone https://github.com/KabirMoulana/helixdeploy
 cd helixdeploy
 
 # Bootstrap a local kind cluster with all dependencies

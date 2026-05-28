@@ -1,4 +1,4 @@
-module github.com/yourusername/helixdeploy
+module github.com/KabirMoulana/helixdeploy
 
 go 1.22
 
