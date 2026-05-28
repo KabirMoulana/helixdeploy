@@ -1,0 +1,128 @@
+apiVersion: helix.io/v1alpha1
+kind: Pipeline
+metadata:
+  name: my-service-pipeline
+  namespace: my-team
+  annotations:
+    helix.io/description: "Build, test, and deploy my-service to production"
+spec:
+  description: "Full CI/CD pipeline for my-service"
+
+  triggers:
+    - type: push
+      branches: [main]
+    - type: pull_request
+      branches: [main, develop]
+
+  timeout: "45m"
+
+  stages:
+    # ── Stage 1: Build ────────────────────────────────────────────────────────
+    - name: build
+      steps:
+        - name: go-build
+          image: golang:1.22-alpine
+          script: |
+            go build -ldflags="-w -s" -o /workspace/bin/my-service ./cmd/server
+            echo "Build complete: $(du -sh /workspace/bin/my-service)"
+          cache:
+            key: go-mod-{{ .Branch }}-{{ checksum "go.sum" }}
+            path: [/go/pkg/mod, /root/.cache/go-build]
+
+        - name: docker-build
+          image: gcr.io/kaniko-project/executor:latest
+          command:
+            - /kaniko/executor
+            - --context=/workspace
+            - --dockerfile=/workspace/Dockerfile
+            - --destination=ghcr.io/myorg/my-service:$(GIT_SHA)
+            - --cache=true
+          env:
+            - name: GIT_SHA
+              value: "$(context.pipeline.sha)"
+
+    # ── Stage 2: Test ─────────────────────────────────────────────────────────
+    - name: test
+      steps:
+        - name: unit-tests
+          image: golang:1.22-alpine
+          script: |
+            go test ./... -race -coverprofile=coverage.out
+            go tool cover -func=coverage.out | tail -1
+          cache:
+            key: go-mod-{{ .Branch }}-{{ checksum "go.sum" }}
+            path: [/go/pkg/mod]
+
+        - name: integration-tests
+          image: golang:1.22-alpine
+          script: |
+            go test ./tests/integration/... -tags=integration -v
+          env:
+            - name: DATABASE_URL
+              secretRef:
+                name: test-secrets
+                key: database-url
+
+        - name: security-scan
+          image: aquasec/trivy:latest
+          script: |
+            trivy image --exit-code 1 --severity HIGH,CRITICAL \
+              ghcr.io/myorg/my-service:$(GIT_SHA)
+
+    # ── Stage 3: Deploy to Staging ────────────────────────────────────────────
+    - name: deploy-staging
+      steps:
+        - name: helm-upgrade-staging
+          image: alpine/helm:3.14.0
+          script: |
+            helm upgrade --install my-service ./charts/my-service \
+              --namespace my-team-staging \
+              --set image.tag=$(GIT_SHA) \
+              --values charts/my-service/values-staging.yaml \
+              --wait --timeout 5m
+
+        - name: smoke-test-staging
+          image: curlimages/curl:latest
+          script: |
+            sleep 10
+            curl -sf https://staging.my-service.example.com/healthz
+            echo "Smoke test passed"
+
+    # ── Stage 4: Production approval gate ────────────────────────────────────
+    - name: await-prod-approval
+      approvalRequired: true
+      approvalTimeout: "24h"
+      steps:
+        - name: notify-approvers
+          image: curlimages/curl:latest
+          script: |
+            curl -X POST $SLACK_WEBHOOK \
+              -H 'Content-type: application/json' \
+              --data "{\"text\":\"🚀 Approval needed to deploy my-service $(GIT_SHA) to production. Run: kubectl annotate pipeline my-service-pipeline helix.io/approve=$(RUN_ID) -n my-team\"}"
+          env:
+            - name: SLACK_WEBHOOK
+              secretRef:
+                name: slack-secrets
+                key: webhook-url
+
+    # ── Stage 5: Deploy to Production ────────────────────────────────────────
+    - name: deploy-production
+      steps:
+        - name: helm-upgrade-prod
+          image: alpine/helm:3.14.0
+          script: |
+            helm upgrade --install my-service ./charts/my-service \
+              --namespace my-team-prod \
+              --set image.tag=$(GIT_SHA) \
+              --values charts/my-service/values-prod.yaml \
+              --wait --timeout 10m
+
+        - name: verify-rollout
+          image: bitnami/kubectl:latest
+          script: |
+            kubectl rollout status deployment/my-service -n my-team-prod --timeout=5m
+            echo "Deployment verified"
+
+  notifications:
+    slackChannel: "#deployments"
+    onEvents: [succeeded, failed]
